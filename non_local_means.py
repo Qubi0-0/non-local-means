@@ -95,7 +95,6 @@ def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h,s
     bordered_img = cv.copyMakeBorder(input, neighbour_window_size//2, neighbour_window_size//2, neighbour_window_size//2, neighbour_window_size//2, cv.BORDER_REFLECT)
     if len(input.shape) > 2:
         layers = input.shape[2]
-        bordered_img = bordered_img.shape[2]
     else: 
         layers = 1
         input = np.expand_dims(input, axis=2)
@@ -108,11 +107,11 @@ def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h,s
 if __name__ == '__main__':
 
     lena_img = get_img("photos/color/14_512x512.bmp")
-    lena_img = cv.cvtColor(lena_img, cv.COLOR_BGR2GRAY) 
+    # lena_img = cv.cvtColor(lena_img, cv.COLOR_BGR2GRAY) 
     result, dupa = add_noise(lena_img, p= 0.001, mean= 0, sigma= 0.3)
-    # non_local_means_initiate(result,neighbour_window_size= 20,patch_window_size= 6,h = 21,sigma= 40)
-    
-    wynik = cv.fastNlMeansDenoising(result,h=21,searchWindowSize=20,templateWindowSize=6)
+    wynik = non_local_means_initiate(result,neighbour_window_size= 20,patch_window_size= 6,h = 21,sigma= 40)
+
+    # wynik = cv.fastNlMeansDenoising(result,None,15,6,20)
     cv.imshow('wynik',wynik)
     cv.waitKey(0) 
     cv.destroyAllWindows()

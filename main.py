@@ -45,6 +45,15 @@ if __name__ == '__main__':
                 sp_noised, g_noised = nlm.add_noise(img,sp_values[i], gauss_values_mean[i],gauss_values_sigma[i])
                 psnr_noised_sp = nlm.calc_psnr(img,sp_noised)
                 psnr_noised_g = nlm.calc_psnr(img,g_noised)
-                # cv.fastNlMeansDenoising(img,cv_result,h_values,pa)
-                data = [img_num+1,type[0],"PSNR",psnr_noised_sp]
+                cv_result = cv.fastNlMeansDenoising(sp_noised,None,15,6,20)
+                cv_psnr = nlm.calc_psnr(img,cv_result)
+                my_result = nlm.non_local_means_initiate(sp_noised,neighbour_window_size= 20,patch_window_size= 6,h = 21,sigma= 40)
+                my_psnr = nlm.calc_psnr(img,my_result)
+                data = [img_num+1,type[0],"PSNR",psnr_noised_sp,cv_psnr,my_psnr]
+                writer.writerow(data)
+                cv_result = cv.fastNlMeansDenoising(sp_noised,None,15,6,20)
+                cv_psnr = nlm.calc_psnr(img,cv_result)
+                my_result = nlm.non_local_means_initiate(sp_noised,neighbour_window_size= 20,patch_window_size= 6,h = 21,sigma= 40)
+                my_psnr = nlm.calc_psnr(img,my_result)
+                data = [img_num+1,type[1],"PSNR",psnr_noised_g,cv_psnr,my_psnr]
                 writer.writerow(data)
