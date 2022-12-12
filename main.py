@@ -6,12 +6,13 @@ from time import sleep
 from tqdm import tqdm
 import random
 
-def get_img(file_path):
+def get_img(file_path, show = False):
     img = cv.imread(file_path)
-    cv.imshow('original',img)
+    if show:
+        cv.imshow('original',img)
     return img
 
-def add_noise(img,noiseType, p = 0.001, mean = 0,  sigma = 0.3):
+def add_noise(img,noiseType, p = 0.001, mean = 0,  sigma = 0.3, show = False):
     ''' 
     This function takes an self.img and returns an self.img that has been noised with the given input parameters.
     p - Probability threshold of salt and pepper noise.
@@ -21,35 +22,30 @@ def add_noise(img,noiseType, p = 0.001, mean = 0,  sigma = 0.3):
         sigma *= 255 #Since the img itself is not normalized
         noise = np.zeros_like(img)
         noise = cv.randn(noise, mean, sigma)
-        output = cv.add(img, noise) #generate and add gaussian noise
-        return output
+        result = cv.add(img, noise) #generate and add gaussian noise
     elif noiseType.upper() == 'SALTNPEPPER':
-        output = img.copy()
+        result = img.copy()
         noise = np.random.rand(img.shape[0], img.shape[1])
-        output[noise < p] = 0
-        output[noise > (1-p)] = 255
-        return output
+        result[noise < p] = 0
+        result[noise > (1-p)] = 255
+    if show:
+        cv.imshow('noised',result)
+    return result
+
 
 
 
 
 @jit(nopython=True) 
-def non_local_means_computing(input, neighbour_window_size, patch_window_size,h,layers):
+def non_local_means_computing(input, bordered_img, neighbour_window_size, patch_window_size, sigma, layers):
     '''Performs the non-local-means algorithm given a input img.'''
 
     neighbour_width = neighbour_window_size//2
     patch_width = patch_window_size//2
     img = input.copy()
-    
 
-    bordered_img = np.zeros((img.shape[0] + neighbour_window_size,img.shape[1] + neighbour_window_size,layers))
-    bordered_img = bordered_img.astype(np.uint8)
-    bordered_img[neighbour_width:neighbour_width+img.shape[0], neighbour_width:neighbour_width+img.shape[1]] = img
-    bordered_img[neighbour_width:neighbour_width+img.shape[0], 0:neighbour_width] = np.fliplr(img[:,0:neighbour_width])
-    bordered_img[neighbour_width:neighbour_width+img.shape[0], img.shape[1]+neighbour_width:img.shape[1]+2*neighbour_width] = np.fliplr(img[:,img.shape[1]-neighbour_width:img.shape[1]])
-    bordered_img[0:neighbour_width,:] = np.flipud(bordered_img[neighbour_width:2*neighbour_width,:])
-    bordered_img[neighbour_width+img.shape[0]:2*neighbour_width+img.shape[0], :] =np.flipud(bordered_img[bordered_img.shape[0] - 2*neighbour_width:bordered_img.shape[0] - neighbour_width,:])
     max_progress = (img.shape[1]*img.shape[0]*(neighbour_window_size - patch_window_size)**2)
+    h = 0.4*sigma
     result = bordered_img.copy()
 
 
@@ -76,7 +72,7 @@ def non_local_means_computing(input, neighbour_window_size, patch_window_size,h,
 
 
                         euclidean_dist = np.sqrt(np.sum(np.square(patch_window - neighbour_window)))
-                        weight = np.exp(-euclidean_dist/h)
+                        weight = np.exp(-euclidean_dist/h**2)
                         weight_sum += weight 
                 
                         pix_val += weight*bordered_img[patch_x + patch_width,
@@ -96,13 +92,18 @@ def non_local_means_computing(input, neighbour_window_size, patch_window_size,h,
 
 
 
-def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h):
+def non_local_means_initiate(input, neighbour_window_size, patch_window_size,sigma):
+    # reflects borders to allow computing on the edges
+    bordered_img = cv.copyMakeBorder(input, neighbour_window_size//2, neighbour_window_size//2, neighbour_window_size//2, neighbour_window_size//2, cv.BORDER_REFLECT)
     if len(input.shape) > 2:
         layers = input.shape[2]
+        bordered_img = bordered_img.shape[2]
     else: 
         layers = 1
         input = np.expand_dims(input, axis=2)
-    result = non_local_means_computing(input, neighbour_window_size, patch_window_size,h,layers)
+        bordered_img = np.expand_dims(bordered_img, axis=2)
+
+    result = non_local_means_computing(input, bordered_img, neighbour_window_size, patch_window_size,sigma,layers)
     cv.imshow("Final", result)
 
 
@@ -111,8 +112,7 @@ if __name__ == '__main__':
     lena_img = get_img("photos/lena.png")
     lena_img = cv.cvtColor(lena_img, cv.COLOR_BGR2GRAY) 
     result = add_noise(lena_img,"SALTNPEPPER", p= 0.001, mean= 0, sigma= 0.3)
-    cv.imshow('noised',result)
-    non_local_means_initiate(result,20,6,16)
+    non_local_means_initiate(result,neighbour_window_size= 20,patch_window_size= 6,sigma= 10)
 
     cv.waitKey(0) 
     cv.destroyAllWindows()
