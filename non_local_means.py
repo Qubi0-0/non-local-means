@@ -10,25 +10,26 @@ def get_img(file_path, show = False):
         cv.imshow('original',img)
     return img
 
-def add_noise(img,noiseType, p = 0.001, mean = 0,  sigma = 0.3, show = False):
+def add_noise(img, p = 0.001, mean = 0,  sigma = 0.3, show = False):
     ''' 
     This function takes an self.img and returns an self.img that has been noised with the given input parameters.
     p - Probability threshold of salt and pepper noise.
     noisetype - 
     '''
-    if noiseType.upper() == 'GAUSSIAN':
-        sigma *= 255 #Since the img itself is not normalized
-        noise = np.zeros_like(img)
-        noise = cv.randn(noise, mean, sigma)
-        result = cv.add(img, noise) #generate and add gaussian noise
-    elif noiseType.upper() == 'SP':
-        result = img.copy()
-        noise = np.random.rand(img.shape[0], img.shape[1])
-        result[noise < p] = 0
-        result[noise > (1-p)] = 255
+
+    sigma *= 255 #Since the img itself is not normalized
+    noise = np.zeros_like(img)
+    noise = cv.randn(noise, mean, sigma)
+    result_g = cv.add(img, noise) #generate and add gaussian noise
+
+    result_sp = img.copy()
+    noise = np.random.rand(img.shape[0], img.shape[1])
+    result_sp[noise < p] = 0
+    result_sp[noise > (1-p)] = 255
     if show:
-        cv.imshow('noised',result)
-    return result
+        cv.imshow('noised',result_sp)
+
+    return result_sp , result_g
 
 
 def calc_psnr(original, noisy, peak=100):
@@ -106,10 +107,12 @@ def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h,s
 
 if __name__ == '__main__':
 
-    lena_img = get_img("photos/lena.png")
+    lena_img = get_img("photos/color/14_512x512.bmp")
     lena_img = cv.cvtColor(lena_img, cv.COLOR_BGR2GRAY) 
-    result = add_noise(lena_img,"SP", p= 0.001, mean= 0, sigma= 0.3)
-    non_local_means_initiate(result,neighbour_window_size= 20,patch_window_size= 6,h = 21,sigma= 40)
-    # cv.fastNlMeansDenoisingColored
+    result, dupa = add_noise(lena_img, p= 0.001, mean= 0, sigma= 0.3)
+    # non_local_means_initiate(result,neighbour_window_size= 20,patch_window_size= 6,h = 21,sigma= 40)
+    
+    wynik = cv.fastNlMeansDenoising(result,h=21,searchWindowSize=20,templateWindowSize=6)
+    cv.imshow('wynik',wynik)
     cv.waitKey(0) 
     cv.destroyAllWindows()
