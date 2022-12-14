@@ -3,7 +3,7 @@ import numpy as np
 from numba import jit
 from time import sleep
 from tqdm import tqdm
-
+import matplotlib.pyplot as plt
 def get_img(file_path, show = False):
     img = cv.imread(file_path)
     if show:
@@ -105,13 +105,30 @@ def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h,s
 
 
 if __name__ == '__main__':
+    x_size = 1
+    y_size = 4
+    img = get_img("photos/color/1.bmp")
+    sp_noised, g_noise = add_noise(img, p= 0.05, mean= 0, sigma= 0.3)
+    result = non_local_means_initiate(sp_noised,neighbour_window_size= 20,patch_window_size= 6,h = 18,sigma= 36)
+    # result = cv.fastNlMeansDenoising(sp_noised,None,15,6,20)
+    # plt.figure(figsize=(18,10))
+    plt.axis("off")
+    plt.subplot(x_size,y_size,1)
+    plt.imshow(cv.cvtColor(img,cv.COLOR_BGR2RGB))
+    plt.xlabel("Original")
+    plt.subplot(x_size,y_size,2)
+    plt.imshow(cv.cvtColor(sp_noised,cv.COLOR_BGR2RGB))
+    plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, sp_noised)))
+    plt.xlabel("Salt&Pepper")
+    plt.subplot(x_size,y_size,3)
+    plt.imshow(cv.cvtColor(result,cv.COLOR_BGR2RGB))
+    plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, result)))
+    plt.xlabel("Denoised")
+    plt.subplot(x_size,y_size,4)
+    plt.imshow(cv.cvtColor(cv.subtract(img,result),cv.COLOR_BGR2RGB))
+    plt.xlabel("Difference: Orginal - Densoised")
+    plt.show()
 
-    lena_img = get_img("photos/color/14_512x512.bmp")
-    # lena_img = cv.cvtColor(lena_img, cv.COLOR_BGR2GRAY) 
-    result, dupa = add_noise(lena_img, p= 0.001, mean= 0, sigma= 0.3)
-    wynik = non_local_means_initiate(result,neighbour_window_size= 20,patch_window_size= 6,h = 21,sigma= 40)
 
-    # wynik = cv.fastNlMeansDenoising(result,None,15,6,20)
-    cv.imshow('wynik',wynik)
     cv.waitKey(0) 
     cv.destroyAllWindows()
