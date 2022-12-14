@@ -34,46 +34,6 @@ def add_noise(img, layers,  p = 0.001, mean = 0,  sigma = 0.3,show = False):
     return result_sp , result_g
 
 
-def noisy(image,noise_typ):
-    if noise_typ == "gauss":
-      row,col,ch= image.shape
-      mean = 0
-      var = 0.1
-      sigma = var**0.5
-      gauss = np.random.normal(mean,sigma,(row,col,ch))
-      gauss = gauss.reshape(row,col,ch)
-      noisy = image + gauss
-      cv.imshow("nosed",noisy)
-      return noisy
-    elif noise_typ == "s&p":
-      row,col,ch = image.shape
-      s_vs_p = 0.5
-      amount = 0.004
-      out = np.copy(image)
-      # Salt mode
-      num_salt = np.ceil(amount * image.size * s_vs_p)
-      coords = [np.random.randint(0, i - 1, int(num_salt))
-              for i in image.shape]
-      out[coords] = 1
-
-      # Pepper mode
-      num_pepper = np.ceil(amount* image.size * (1. - s_vs_p))
-      coords = [np.random.randint(0, i - 1, int(num_pepper))
-              for i in image.shape]
-      out[coords] = 0
-      return out
-    elif noise_typ == "poisson":
-      vals = len(np.unique(image))
-      vals = 2 ** np.ceil(np.log2(vals))
-      noisy = np.random.poisson(image * vals) / float(vals)
-      return noisy
-    elif noise_typ =="speckle":
-      row,col,ch = image.shape
-      gauss = np.random.randn(row,col,ch)
-      gauss = gauss.reshape(row,col,ch)        
-      noisy = image + image * gauss
-      return noisy
-
 
 def calc_psnr(original, noisy, peak=100):
     mse = np.mean((original-noisy)**2)
@@ -81,52 +41,48 @@ def calc_psnr(original, noisy, peak=100):
 
 
 @jit(nopython=True) 
-def non_local_means_computing(input, bordered_img, neighbour_window_size, patch_window_size, sigma,h ,layers):
+def non_local_means_computing(input, bordered_img, neighbour_window_size, patch_window_size, sigma,h):
     '''Performs the non-local-means algorithm given a input img.'''
 
     neighbour_width = neighbour_window_size//2
     patch_width = patch_window_size//2
     img = input.copy()
-    max_progress = (img.shape[1]*img.shape[0]*(neighbour_window_size - patch_window_size)**2)*layers
+    max_progress = (img.shape[1]*img.shape[0]*(neighbour_window_size - patch_window_size)**2)
     result = bordered_img.copy()
 
-    
+    progress = 0
+    for img_x in range(neighbour_width , neighbour_width + img.shape[0]):
+        for img_y in range(neighbour_width, neighbour_width + img.shape[1]):
+            win_x = img_x - neighbour_width
+            win_y = img_y - neighbour_width
+            
+            neighbour_window = bordered_img[img_x - patch_window_size//2 : img_x + patch_width +1,
+                                            img_y - patch_window_size//2 : img_y + patch_width +1]
 
-    # with tqdm(total=max_progress) as progress_bar:
-    for layer in range(layers):
-        progress = 0
-        for img_x in range(neighbour_width , neighbour_width + img.shape[0]):
-            for img_y in range(neighbour_width, neighbour_width + img.shape[1]):
-                win_x = img_x - neighbour_width
-                win_y = img_y - neighbour_width
-                
-                neighbour_window = bordered_img[img_x - patch_window_size//2 : img_x + patch_width +1,
-                                                img_y - patch_window_size//2 : img_y + patch_width +1,layer]
+            pix_val = 0
+            weight_sum = 0
+            for patch_x in range(win_x,win_x + neighbour_window_size - patch_window_size):
+                for patch_y in range(win_y,win_y + neighbour_window_size - patch_window_size):
 
-                pix_val = 0
-                weight_sum = 0
-                for patch_x in range(win_x,win_x + neighbour_window_size - patch_window_size):
-                    for patch_y in range(win_y,win_y + neighbour_window_size - patch_window_size):
-
-                        patch_window = bordered_img[patch_x:patch_x+patch_window_size + 1,
-                                                    patch_y:patch_y+patch_window_size + 1,layer]
+                    patch_window = bordered_img[patch_x:patch_x+patch_window_size + 1,
+                                                patch_y:patch_y+patch_window_size + 1]
 
 
-                        euclidean_dist = (np.sum(np.square(patch_window - neighbour_window)))
-                        # euclidean_dist = euclidean_dist/3*(patch_window_size**2)                        
-                        weight = np.exp(-max(euclidean_dist -2*sigma**2, 0.0)/h**2)
-                        weight_sum += weight                
-                        pix_val += weight*bordered_img[patch_x + patch_width,
-                                                    patch_y + patch_width,layer]
+                    euclidean_dist = (np.sum(np.square(patch_window - neighbour_window)))
+                    # euclidean_dist = euclidean_dist/3*(patch_window_size**2)                        
+                    weight = np.exp(-max(euclidean_dist -2*sigma**2, 0.0)/h**2)
+                    weight_sum += weight                
+                    pix_val += weight*bordered_img[patch_x + patch_width,
+                                                patch_y + patch_width]
 
-                        progress += 1
-                        percent_completed = progress*100/max_progress
-                        if percent_completed % 10 == 0:
-                            print('Completed in: ', percent_completed,'precent of layer number: ',layer+1)
-                
-                pix_val /= weight_sum
+                    progress += 1
+                    percent_completed = progress*100/max_progress
+                    if percent_completed % 10 == 0:
+                        print('Completed in: ', percent_completed)
+            
+            pix_val /= weight_sum
 
-                result[img_x,img_y,layer] = pix_val
+            result[img_x,img_y] = pix_val
 
 
     return result[neighbour_width:neighbour_width+img.shape[0],neighbour_width:neighbour_width+img.shape[1]]
@@ -136,14 +92,8 @@ def non_local_means_computing(input, bordered_img, neighbour_window_size, patch_
 def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h,sigma):
     # reflects borders to allow computing on the edges
     bordered_img = cv.copyMakeBorder(input, neighbour_window_size//2, neighbour_window_size//2, neighbour_window_size//2, neighbour_window_size//2, cv.BORDER_REFLECT)
-    if len(input.shape) > 2:
-        layers = input.shape[2]
-    else: 
-        layers = 1
-        input = np.expand_dims(input, axis=2)
-        bordered_img = np.expand_dims(bordered_img, axis=2)
 
-    result = non_local_means_computing(input, bordered_img, neighbour_window_size, patch_window_size,sigma,h,layers)
+    result = non_local_means_computing(input, bordered_img, neighbour_window_size, patch_window_size,sigma,h)
     return result    
 
 
