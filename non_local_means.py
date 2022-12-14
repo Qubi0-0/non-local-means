@@ -1,26 +1,28 @@
 import cv2 as cv
 import numpy as np
 from numba import jit
-from time import sleep
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+
+
+
 def get_img(file_path, show = False):
     img = cv.imread(file_path)
     if show:
         cv.imshow('original',img)
     return img
 
-def add_noise(img, p = 0.001, mean = 0,  sigma = 0.3, show = False):
+def add_noise(img, layers,  p = 0.001, mean = 0,  sigma = 0.3,show = False):
     ''' 
     This function takes an self.img and returns an self.img that has been noised with the given input parameters.
     p - Probability threshold of salt and pepper noise.
     noisetype - 
     '''
-
-    sigma *= 255 #Since the img itself is not normalized
-    noise = np.zeros_like(img)
-    noise = cv.randn(noise, mean, sigma)
-    result_g = cv.add(img, noise) #generate and add gaussian noise
+    for layer in range(layers):
+        sigma *= 255 #Since the img itself is not normalized
+        noise = np.zeros_like(img[:,:,layer])
+        noise = cv.randn(noise, mean, sigma)
+        result_g = cv.add(img[:,:,layer], noise) #generate and add gaussian noise
 
     result_sp = img.copy()
     noise = np.random.rand(img.shape[0], img.shape[1])
@@ -30,6 +32,47 @@ def add_noise(img, p = 0.001, mean = 0,  sigma = 0.3, show = False):
         cv.imshow('noised',result_sp)
 
     return result_sp , result_g
+
+
+def noisy(image,noise_typ):
+    if noise_typ == "gauss":
+      row,col,ch= image.shape
+      mean = 0
+      var = 0.1
+      sigma = var**0.5
+      gauss = np.random.normal(mean,sigma,(row,col,ch))
+      gauss = gauss.reshape(row,col,ch)
+      noisy = image + gauss
+      cv.imshow("nosed",noisy)
+      return noisy
+    elif noise_typ == "s&p":
+      row,col,ch = image.shape
+      s_vs_p = 0.5
+      amount = 0.004
+      out = np.copy(image)
+      # Salt mode
+      num_salt = np.ceil(amount * image.size * s_vs_p)
+      coords = [np.random.randint(0, i - 1, int(num_salt))
+              for i in image.shape]
+      out[coords] = 1
+
+      # Pepper mode
+      num_pepper = np.ceil(amount* image.size * (1. - s_vs_p))
+      coords = [np.random.randint(0, i - 1, int(num_pepper))
+              for i in image.shape]
+      out[coords] = 0
+      return out
+    elif noise_typ == "poisson":
+      vals = len(np.unique(image))
+      vals = 2 ** np.ceil(np.log2(vals))
+      noisy = np.random.poisson(image * vals) / float(vals)
+      return noisy
+    elif noise_typ =="speckle":
+      row,col,ch = image.shape
+      gauss = np.random.randn(row,col,ch)
+      gauss = gauss.reshape(row,col,ch)        
+      noisy = image + image * gauss
+      return noisy
 
 
 def calc_psnr(original, noisy, peak=100):
@@ -105,30 +148,32 @@ def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h,s
 
 
 if __name__ == '__main__':
-    x_size = 1
-    y_size = 4
-    img = get_img("photos/color/1.bmp")
-    sp_noised, g_noise = add_noise(img, p= 0.05, mean= 0, sigma= 0.3)
-    result = non_local_means_initiate(sp_noised,neighbour_window_size= 20,patch_window_size= 6,h = 18,sigma= 36)
-    # result = cv.fastNlMeansDenoising(sp_noised,None,15,6,20)
-    # plt.figure(figsize=(18,10))
-    plt.axis("off")
-    plt.subplot(x_size,y_size,1)
-    plt.imshow(cv.cvtColor(img,cv.COLOR_BGR2RGB))
-    plt.xlabel("Original")
-    plt.subplot(x_size,y_size,2)
-    plt.imshow(cv.cvtColor(sp_noised,cv.COLOR_BGR2RGB))
-    plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, sp_noised)))
-    plt.xlabel("Salt&Pepper")
-    plt.subplot(x_size,y_size,3)
-    plt.imshow(cv.cvtColor(result,cv.COLOR_BGR2RGB))
-    plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, result)))
-    plt.xlabel("Denoised")
-    plt.subplot(x_size,y_size,4)
-    plt.imshow(cv.cvtColor(cv.subtract(img,result),cv.COLOR_BGR2RGB))
-    plt.xlabel("Difference: Orginal - Densoised")
-    plt.show()
-
-
+    x_size = 2
+    y_size = 2
+    photo_num = [1] #,2,3,4
+    for num in tqdm(photo_num):
+        img = get_img(f"photos/gray/{num}.bmp")
+        sp_noised, g_noised = add_noise(img,3, p= 0.05, mean= 0, sigma= 0.15)
+        # result = non_local_means_initiate(sp_noised,neighbour_window_size= 20,patch_window_size= 6,h = 18,sigma= 38)
+        result = non_local_means_initiate(sp_noised,neighbour_window_size= 20,patch_window_size= 6,h = 18,sigma= 50)
+        result = cv.fastNlMeansDenoising(sp_noised,None,15,6,20)
+        plt.figure(figsize=(18,10))
+        plt.axis("off")
+        plt.subplot(x_size,y_size,1)
+        plt.imshow(cv.cvtColor(img,cv.COLOR_BGR2RGB))
+        plt.xlabel("Original")
+        plt.subplot(x_size,y_size,2)
+        plt.imshow(cv.cvtColor(sp_noised,cv.COLOR_BGR2RGB))
+        plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, sp_noised)))
+        plt.xlabel("Salt&Pepper")
+        plt.subplot(x_size,y_size,3)
+        plt.imshow(cv.cvtColor(result,cv.COLOR_BGR2RGB))
+        plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, result)))
+        plt.xlabel("Denoised")
+        plt.subplot(x_size,y_size,4)
+        plt.imshow(cv.cvtColor(cv.subtract(img,result),cv.COLOR_BGR2RGB))
+        plt.xlabel("Difference: Orginal - Densoised")
+        plt.show()
+    # plt.savefig('figures/plot3.eps', format='eps')
     cv.waitKey(0) 
     cv.destroyAllWindows()
