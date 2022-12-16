@@ -44,7 +44,7 @@ def non_local_means_computing(input, bordered_img, neighbour_window_size, patch_
     neighbour_width = neighbour_window_size//2
     patch_width = patch_window_size//2
     img = input.copy()
-    max_progress = (img.shape[1]*img.shape[0]*(neighbour_window_size - patch_window_size)**2)*layers
+    max_progress = (img.shape[1]*img.shape[0]*(neighbour_window_size - patch_window_size)**2)
     result = bordered_img.copy()
 
     
@@ -101,32 +101,62 @@ def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h,s
 
     result = non_local_means_computing(input, bordered_img, neighbour_window_size, patch_window_size,sigma,h,layers)
     return result    
+ 
+
+def mse(imageA, imageB):
+    	# the 'Mean Squared Error' between the two images is the
+	# sum of the squared difference between the two images;
+	# NOTE: the two images must have the same dimension
+	err = np.sum((imageA.astype("float") - imageB.astype("float")) ** 2)
+	err /= float(imageA.shape[0] * imageA.shape[1])
+	
+	# return the MSE, the lower the error, the more "similar"
+	# the two images are
+	return err
 
 
 if __name__ == '__main__':
-    x_size = 2
-    y_size = 2
-    photo_num = [1] 
-    for num in tqdm(photo_num):
-        img = get_img(f"photos/color/{num}.bmp")
-        sp_noised, g_noised = add_noise(img,3, p= 0.05, mean= 0, sigma= 0.15)
-        result = non_local_means_initiate(sp_noised,neighbour_window_size= 30,patch_window_size= 10,h = 30,sigma= 55) # neighbour_window_size= 20,patch_window_size= 6,h = 18,sigma= 38
-        plt.figure(figsize=(18,10))
-        plt.axis("off")
-        plt.subplot(x_size,y_size,1)
-        plt.imshow(cv.cvtColor(img,cv.COLOR_BGR2RGB))
-        plt.xlabel("Original")
-        plt.subplot(x_size,y_size,2)
-        plt.imshow(cv.cvtColor(sp_noised,cv.COLOR_BGR2RGB))
-        plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, sp_noised)))
-        plt.xlabel("Salt&Pepper")
-        plt.subplot(x_size,y_size,3)
-        plt.imshow(cv.cvtColor(result,cv.COLOR_BGR2RGB))
-        plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, result)))
-        plt.xlabel("Denoised")
-        plt.subplot(x_size,y_size,4)
-        plt.imshow(cv.cvtColor(cv.subtract(img,result),cv.COLOR_BGR2RGB))
-        plt.xlabel("Difference: Orginal - Densoised")
+    x_size = 3
+    y_size = 3
+    # photo_num = [1] 
+    factors = [62,63,64,65,66,67,68] 
+    sigma = [0.40, 0.45, 0.50, 0.55, 0.35]
+    plt.axis("off")
+    j = 1
+    max_progress = len(factors)*len(sigma)
+    with tqdm(total=max_progress) as progress_bar:
+        for h in (sigma):
+            plt.figure(j,figsize=(18,10))
+            j += 1
+            i = 1 
+            for num in (factors):
+                    img = get_img(f"photos/color/1.bmp")
+                    sp_noised, g_noised = add_noise(img,3, p= 0.05, mean= 0, sigma= 0.15) # sp_noised,neighbour_window_size= 30,patch_window_size= 10,h = 25,sigma= 62 
+                    result = non_local_means_initiate(sp_noised,neighbour_window_size= 30,patch_window_size= 10,h = h*num,sigma= num) # neighbour_window_size= 20,patch_window_size= 6,h = 18,sigma= 38
+                    psnr = calc_psnr(img,result)
+                    mse_err = mse(img,result) 
+                    # cv.imshow(f'factor : {num}',result)
+                    #     plt.subplot(x_size,y_size,1)
+                    #     plt.imshow(cv.cvtColor(img,cv.COLOR_BGR2RGB))
+                    #     plt.xlabel("Original")
+                    #     plt.subplot(x_size,y_size,2)
+                    #     plt.imshow(cv.cvtColor(sp_noised,cv.COLOR_BGR2RGB))
+                    #     plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, sp_noised)))
+                    #     plt.xlabel("Salt&Pepper")
+                    #     plt.subplot(x_size,y_size,3)
+                    #     plt.imshow(cv.cvtColor(result,cv.COLOR_BGR2RGB))
+                    #     plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, result)))
+                    #     plt.xlabel("Denoised")
+                    #     plt.subplot(x_size,y_size,4)
+                    #     plt.imshow(cv.cvtColor(cv.subtract(img,result),cv.COLOR_BGR2RGB))
+                    #     plt.xlabel("Difference: Orginal - Densoised")
+                    #     plt.show()
+                    # cv.waitKey(0) 
+                    progress_bar.update()
+                    plt.subplot(x_size,y_size,i)
+                    i += 1
+                    plt.imshow(cv.cvtColor(result,cv.COLOR_BGR2RGB))
+                    plt.title(f"sigma: {num}, h={h}*sigma")
+                    plt.xlabel(f"PSNR:{psnr} MSE: {mse_err}")
         plt.show()
-    cv.waitKey(0) 
-    cv.destroyAllWindows()
+        cv.destroyAllWindows()
