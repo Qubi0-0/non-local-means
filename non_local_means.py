@@ -12,16 +12,15 @@ def get_img(file_path, show = False):
         cv.imshow('original',img)
     return img
 
-def add_noise(img, layers,  p = 0.001, mean = 0,  sigma = 0.3,show = False):
+def add_noise(img,  p = 0.001, mean = 0,  sigma = 0.3,show = False):
     ''' 
     This function takes an self.img and returns an img that has been noised with the given input parameters.
     p - Probability threshold of salt and pepper noise.
     '''
-    for layer in range(layers):
-        sigma *= 255 #Since the img itself is not normalized
-        noise = np.zeros_like(img[:,:,layer])
-        noise = cv.randn(noise, mean, sigma)
-        result_g = cv.add(img[:,:,layer], noise) #generate and add gaussian noise
+    sigma *= 255 #Since the img itself is not normalized
+    noise = np.zeros_like(img)
+    noise = cv.randn(noise, mean, sigma)
+    result_g = cv.add(img, noise) #generate and add gaussian noise
 
     result_sp = img.copy()
     noise = np.random.rand(img.shape[0], img.shape[1])
@@ -100,6 +99,7 @@ def mse(imageA, imageB):
 
 def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h,sigma):
     # reflects borders to allow computing on the edges
+
     bordered_img = cv.copyMakeBorder(input, neighbour_window_size//2, neighbour_window_size//2, neighbour_window_size//2, neighbour_window_size//2, cv.BORDER_REFLECT)
     if len(input.shape) > 2:
         layers = input.shape[2]
@@ -115,11 +115,12 @@ def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h,s
 if __name__ == '__main__':
     x_size = 2
     y_size = 2
-    photo_num = [1,2] 
+    photo_num = [1,3] 
     for num in tqdm(photo_num):
         img = get_img(f"photos/gray/{num}.bmp")
-        sp_noised, g_noised = add_noise(img,3, p= 0.05, mean= 0, sigma= 0.15)
-        result = non_local_means_initiate(sp_noised,neighbour_window_size= 30,patch_window_size= 10,h = 0.4*62,sigma= 62) # neighbour_window_size= 20,patch_window_size= 6,h = 18,sigma= 38
+        img = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
+        sp_noised, g_noised = add_noise(img, p= 0.05, mean= 0, sigma= 0.15)
+        result = non_local_means_initiate(sp_noised,neighbour_window_size= 30,patch_window_size= 10,h = 0.45*64,sigma= 64) # neighbour_window_size= 20,patch_window_size= 6,h = 18,sigma= 38
         plt.figure(figsize=(18,10))
         plt.axis("off")
         plt.subplot(x_size,y_size,1)
@@ -134,7 +135,7 @@ if __name__ == '__main__':
         plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, result),"MSE: {0:.2f}".format(mse(img, result))))
         plt.xlabel("Denoised")
         plt.subplot(x_size,y_size,4)
-        plt.imshow(cv.cvtColor(cv.subtract(img,result),cv.COLOR_BGR2RGB))
+        plt.imshow(cv.cvtColor(cv.subtract(img,result),cv.COLOR_BAYER_BG2GRAY))
         plt.xlabel("Difference: Orginal - Densoised")
         plt.show()
     cv.waitKey(0) 
