@@ -87,7 +87,16 @@ def non_local_means_computing(input, bordered_img, neighbour_window_size, patch_
 
     return result[neighbour_width:neighbour_width+img.shape[0],neighbour_width:neighbour_width+img.shape[1]]
 
-
+def mse(imageA, imageB):
+    	# the 'Mean Squared Error' between the two images is the
+	# sum of the squared difference between the two images;
+	# NOTE: the two images must have the same dimension
+	err = np.sum((imageA.astype("float") - imageB.astype("float")) ** 2)
+	err /= float(imageA.shape[0] * imageA.shape[1])
+	
+	# return the MSE, the lower the error, the more "similar"
+	# the two images are
+	return err
 
 def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h,sigma):
     # reflects borders to allow computing on the edges
