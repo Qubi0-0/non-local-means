@@ -115,11 +115,11 @@ def non_local_means_initiate(input, neighbour_window_size, patch_window_size,h,s
 if __name__ == '__main__':
     x_size = 2
     y_size = 2
-    photo_num = [1] 
+    photo_num = [1,2] 
     for num in tqdm(photo_num):
-        img = get_img(f"photos/color/{num}.bmp")
+        img = get_img(f"photos/gray/{num}.bmp")
         sp_noised, g_noised = add_noise(img,3, p= 0.05, mean= 0, sigma= 0.15)
-        result = non_local_means_initiate(sp_noised,neighbour_window_size= 30,patch_window_size= 10,h = 30,sigma= 55) # neighbour_window_size= 20,patch_window_size= 6,h = 18,sigma= 38
+        result = non_local_means_initiate(sp_noised,neighbour_window_size= 30,patch_window_size= 10,h = 0.4*62,sigma= 62) # neighbour_window_size= 20,patch_window_size= 6,h = 18,sigma= 38
         plt.figure(figsize=(18,10))
         plt.axis("off")
         plt.subplot(x_size,y_size,1)
@@ -127,11 +127,11 @@ if __name__ == '__main__':
         plt.xlabel("Original")
         plt.subplot(x_size,y_size,2)
         plt.imshow(cv.cvtColor(sp_noised,cv.COLOR_BGR2RGB))
-        plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, sp_noised)))
+        plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, sp_noised),"MSE: {0:.2f}".format(mse(img, result))))
         plt.xlabel("Salt&Pepper")
         plt.subplot(x_size,y_size,3)
         plt.imshow(cv.cvtColor(result,cv.COLOR_BGR2RGB))
-        plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, result)))
+        plt.title("PSNR {0:.2f}dB".format(calc_psnr(img, result),"MSE: {0:.2f}".format(mse(img, result))))
         plt.xlabel("Denoised")
         plt.subplot(x_size,y_size,4)
         plt.imshow(cv.cvtColor(cv.subtract(img,result),cv.COLOR_BGR2RGB))
